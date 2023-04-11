@@ -1,0 +1,8 @@
+<div [ngClass]="[
+   squareConfig.isWall ? 'wall' : '',
+   squareConfig.isStart ? 'start' : '',
+   squareConfig.isEnd ? 'end' : '',
+   squareConfig.isPartOfRoute ? 'route' : '',
+   squareConfig.isPartOfOpenList ? 'openList' : '',
+   squareConfig.isPartOfClosedList ? 'closedList' : ''
+ ]" class="square"></div>

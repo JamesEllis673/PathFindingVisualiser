@@ -1,0 +1,37 @@
+.square {
+  padding: 5px;
+  background: lightslategrey;
+  border: solid 1px black;
+}
+
+.square:hover {
+  background: darkslategrey;
+}
+
+.wall {
+  background: black;
+}
+
+.wall:hover {
+  background: black;
+}
+
+.start {
+  background: green !important;
+};
+
+.end {
+  background: red !important;
+}
+
+.route {
+  background: green;
+}
+
+.openList {
+  background: gold;
+}
+
+.closedList {
+  background: lightgray;
+}

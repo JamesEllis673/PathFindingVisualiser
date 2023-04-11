@@ -1,0 +1,14 @@
+<div class="rowContainer" *ngFor="let row of squares">
+  <app-square *ngFor="let square of row"
+              [squareConfig]="square"
+              (click)="squareOnClick(square)">
+  </app-square>
+</div>
+
+<button class="button" (click)="runPathFinder(0)">START A*</button>
+<button class="button" (click)="runPathFinder(1)">START DIJKSTRA'S</button>
+<button class="button" (click)="setClickToWall()" [disabled]="clickType === 0">ADD WALL</button>
+<button class="button" (click)="setClickToStart()" [disabled]="clickType === 1">ADD START</button>
+<button class="button" (click)="setClickToEnd()" [disabled]="clickType === 2">ADD END</button>
+<button class="button" (click)="resetPath()">RESET</button>
+<button class="button" (click)="randomWalls()">RANDOM WALLS</button>
