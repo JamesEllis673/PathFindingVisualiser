@@ -132,12 +132,12 @@ export class AppComponent implements OnInit {
 
     let delayInMs: number = 75;
 
-    if (starts.length > 1 || starts.length === 0) {
+    if (starts.length !== 1) {
       await this._routeImpossible();
       return;
     }
 
-    if (ends.length > 1 || ends.length === 0) {
+    if (ends.length !== 1) {
       await this._routeImpossible();
       return;
     }
@@ -167,7 +167,7 @@ export class AppComponent implements OnInit {
   }
 
   private async _findRouteAStar(squares: Array<Square>, openList: Array<Node>, closedList: Array<Node>, startSquare: Square, endSquare: Square, delayInMs: number): Promise<void> {
-    const currentNode = this._getNextNode(openList);
+    const currentNode: Node = this._getNextNode(openList);
 
     if (currentNode) {
       if (currentNode.distanceFromEnd > currentNode.parent!.distanceFromEnd && delayInMs > 0 && Math.random() < 0.35) {
@@ -175,9 +175,7 @@ export class AppComponent implements OnInit {
       }
 
       await this._highlightLists(closedList, openList, delayInMs);
-    }
-
-    if (!currentNode) {
+    } else {
       await this._routeImpossible();
       return;
     }
@@ -195,7 +193,7 @@ export class AppComponent implements OnInit {
   }
 
   private async _findRouteDijkstras(squares: Array<Square>, openList: Array<Node>, closedList: Array<Node>, startSquare: Square, endSquare: Square, delayInMs: number): Promise<void> {
-    const currentNode = openList[0];
+    const currentNode: Node = openList[0];
 
     if (currentNode) {
       if (currentNode.distanceFromEnd > currentNode.parent!.distanceFromEnd && delayInMs > 0 && Math.random() < 0.35) {
@@ -287,7 +285,7 @@ export class AppComponent implements OnInit {
   }
 
   private _updateOpenList(currentNode: Node, squares: Array<Square>, openList: Array<Node>, closedList: Array<Node>, endSquare: Square): void {
-    const adjacentSquares: Array<Square> = squares.filter((square: Square) => (this._findXDistance(square, currentNode) === 1 && this._findYDistance(square, currentNode) === 0) || (this._findXDistance(square, currentNode) === 0 && this._findYDistance(square, currentNode) === 1));
+    const adjacentSquares: Array<Square> = squares.filter((square: Square) => (this._findXDistance(square, currentNode) + this._findYDistance(square, currentNode) === 1));
 
     for (let square of adjacentSquares) {
       if (closedList.map((node: Node) => node.square).includes(square)) {
