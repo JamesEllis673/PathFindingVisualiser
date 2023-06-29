@@ -1,14 +1,35 @@
-<div class="rowContainer" *ngFor="let row of squares">
-  <app-square *ngFor="let square of row"
-              [squareConfig]="square"
-              (click)="squareOnClick(square)">
-  </app-square>
-</div>
+<div class="container">
+  <div class="dashboardContainer">
+    <button class="button" (click)="setClickToWall()" [disabled]="clickType === 0">ADD WALL</button>
+    <button class="button" (click)="setClickToStart()" [disabled]="clickType === 1">ADD START</button>
+    <button class="button" (click)="setClickToEnd()" [disabled]="clickType === 2">ADD END</button>
+    <button class="button" (click)="reset()">RESET</button>
+    <button class="button" (click)="randomWalls()">RANDOM WALLS</button>
+    <button class="button" (click)="clear()">CLEAR</button>
+    <br />
+    <div class="createGridContainer">
+      <div class="gridSizeInputContainer">
+        <span class="gridSizeLabel">Grid Size: </span>
+        <input type="number" class="gridSizeInput" [(ngModel)]="gridSize">
+      </div>
+      <button class="button" (click)="createGrid()">CREATE GRID</button>
+    <button class="button" (click)="runPathFinder(0)">START A*</button>
+    <button class="button" (click)="runPathFinder(1)">START DIJKSTRA'S</button>
+    <span class="routeLength">Route Length: {{ routeLength }}</span>
+    </div>
+  </div>
 
-<button class="button" (click)="runPathFinder(0)">START A*</button>
-<button class="button" (click)="runPathFinder(1)">START DIJKSTRA'S</button>
-<button class="button" (click)="setClickToWall()" [disabled]="clickType === 0">ADD WALL</button>
-<button class="button" (click)="setClickToStart()" [disabled]="clickType === 1">ADD START</button>
-<button class="button" (click)="setClickToEnd()" [disabled]="clickType === 2">ADD END</button>
-<button class="button" (click)="resetPath()">RESET</button>
-<button class="button" (click)="randomWalls()">RANDOM WALLS</button>
+
+  <div class="gridContainer">
+    <div class="rowContainer" *ngFor="let row of squares">
+      <app-square *ngFor="let square of row"
+                  [squareConfig]="square"
+                  [gridSize]="gridSize"
+                  (click)="squareOnClick(square)">
+      </app-square>
+    </div>
+    <div *ngIf="!squares" class="placeholder">
+      <span class="placeholderText">CREATE GRID TO START</span>
+    </div>
+  </div>
+</div>

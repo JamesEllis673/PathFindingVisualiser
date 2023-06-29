@@ -1,4 +1,4 @@
-import {ApplicationRef, Component, OnInit} from '@angular/core';
+import {ApplicationRef, Component} from '@angular/core';
 
 export type Coordinates = {
   x: number;
@@ -18,6 +18,7 @@ export type Square = {
 export type Node = {
   parent: Node;
   square: Square;
+  spacesOnRouteToStart: number;
   spacesFromStart: number;
   distanceFromEnd: number;
   totalNodeCost: number;
@@ -39,25 +40,33 @@ export enum PathFinderAlgorithm {
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.scss']
 })
-export class AppComponent implements OnInit {
+export class AppComponent {
   public squares: Array<Array<Square>>;
   public clickType: clickType = clickType.wall;
+  public delayInMs: number;
+  public resetting: boolean = false;
+  public routeLength: number = 0;
+  public gridSize: number = 50;
+  private _routeNotFoundDueToReset: boolean = false;
   private readonly _applicationRef: ApplicationRef;
 
   constructor(applicationRef: ApplicationRef) {
     this._applicationRef = applicationRef;
   }
 
-  public ngOnInit(): void {
-    this.squares = [];
-    const numberOfRows: number = 100;
+  public createGrid(): void {
+    if (this.squares) {
+      this.clear();
+    }
 
-    for (let i = 0; i < numberOfRows; i++) {
+    this.squares = [];
+
+    for (let i = 0; i < this.gridSize; i++) {
       this.squares.push([]);
 
-      for (let j = 0; j < numberOfRows; j++) {
+      for (let j = 0; j < this.gridSize; j++) {
         this.squares[i].push({
-          coordinates: {x: j, y: numberOfRows - 1 - i},
+          coordinates: {x: j, y: this.gridSize - 1 - i},
           isWall: false,
           isStart: false,
           isEnd: false,
@@ -82,45 +91,57 @@ export class AppComponent implements OnInit {
   }
 
   public squareOnClick(square: Square): void {
-    if (this.clickType === clickType.wall) {
-      square.isWall = !square.isWall;
-      square.isStart = false;
-      square.isEnd = false;
-    }
-
-    if (this.clickType === clickType.start) {
-      square.isStart = !square.isStart;
-      square.isWall = false;
-      square.isEnd = false;
-    }
-
-    if (this.clickType === clickType.end) {
-      square.isEnd = !square.isEnd;
-      square.isStart = false;
-      square.isWall = false;
+    switch (this.clickType) {
+      case clickType.wall:
+        square.isWall = !square.isWall;
+        square.isStart = false;
+        square.isEnd = false;
+        break;
+      case clickType.start:
+        square.isStart = !square.isStart;
+        square.isWall = false;
+        square.isEnd = false;
+        break;
+      case clickType.end:
+        square.isEnd = !square.isEnd;
+        square.isStart = false;
+        square.isWall = false;
+        break;
     }
   }
 
-  public resetPath(): void {
+  public reset(): void {
+    this.routeLength = 0;
+    this.resetting = true;
+    this._clearRouteStyles();
+  }
+
+  public clear(): void {
     for (let square of this.squares.flat()) {
-      square.isPartOfRoute = false;
-      square.isPartOfOpenList = false;
-      square.isPartOfClosedList = false;
+      square.isStart = false;
+      square.isEnd = false;
+      square.isWall = false;
     }
+
+    this.reset();
   }
 
   public randomWalls(): void {
-    for (let square of this.squares.flat()) {
-      square.isWall = Math.random() < 0.35;
+    if (this.squares) {
+      this.clear();
 
-      if (square.coordinates.x === 0 && square.coordinates.y === 0) {
-        square.isWall = false;
-        square.isStart = true;
-      }
+      for (let square of this.squares.flat()) {
+        square.isWall = Math.random() < 0.35;
 
-      if (square.coordinates.x === this.squares.length - 1 && square.coordinates.y === this.squares.length - 1) {
-        square.isWall = false;
-        square.isEnd = true;
+        if (square.coordinates.x === 0 && square.coordinates.y === 0) {
+          square.isWall = false;
+          square.isStart = true;
+        }
+
+        if (square.coordinates.x === this.squares.length - 1 && square.coordinates.y === this.squares.length - 1) {
+          square.isWall = false;
+          square.isEnd = true;
+        }
       }
     }
   }
@@ -130,7 +151,9 @@ export class AppComponent implements OnInit {
     const starts: Array<Square> = squares.filter((square: Square) => square.isStart);
     const ends: Array<Square> = squares.filter((square: Square) => square.isEnd);
 
-    let delayInMs: number = 75;
+    this.resetting = false;
+    this.routeLength = 0;
+    this.delayInMs = 50;
 
     if (starts.length !== 1) {
       await this._routeImpossible();
@@ -144,83 +167,95 @@ export class AppComponent implements OnInit {
 
     const startSquare: Square = starts[0];
     const endSquare: Square = ends[0];
+    const distanceFromEnd = this._findDistanceFromEnd(endSquare, startSquare);
     const startNode: Node = {
       parent: null,
       square: startSquare,
+      spacesOnRouteToStart: 0,
       spacesFromStart: 0,
-      distanceFromEnd: this._findDistanceFromEnd(endSquare, startSquare),
-      totalNodeCost: this._findTotalNodeCost(endSquare, startSquare, null)
+      distanceFromEnd: distanceFromEnd,
+      totalNodeCost: distanceFromEnd
     };
 
     const openList: Array<Node> = [];
     const closedList: Array<Node> = [startNode]
 
-    this._updateOpenList(startNode, squares, openList, closedList, endSquare);
+    this._updateOpenList(startNode, squares, openList, closedList, startSquare, endSquare);
 
     if (algorithm === PathFinderAlgorithm.aStar) {
-      await this._findRouteAStar(squares, openList, closedList, startSquare, endSquare, delayInMs);
+      await this._findRouteAStar(squares, openList, closedList, startSquare, endSquare);
     }
 
     if (algorithm === PathFinderAlgorithm.dijkstras) {
-      await this._findRouteDijkstras(squares, openList, closedList, startSquare, endSquare, delayInMs);
+      await this._findRouteDijkstras(squares, openList, closedList, startSquare, endSquare);
     }
   }
 
-  private async _findRouteAStar(squares: Array<Square>, openList: Array<Node>, closedList: Array<Node>, startSquare: Square, endSquare: Square, delayInMs: number): Promise<void> {
+  private async _findRouteAStar(squares: Array<Square>, openList: Array<Node>, closedList: Array<Node>, startSquare: Square, endSquare: Square): Promise<void> {
     const currentNode: Node = this._getNextNode(openList);
 
-    if (currentNode) {
-      if (currentNode.distanceFromEnd > currentNode.parent!.distanceFromEnd && delayInMs > 0 && Math.random() < 0.35) {
-        delayInMs = delayInMs - 1;
-      }
-
-      await this._highlightLists(closedList, openList, delayInMs);
-    } else {
-      await this._routeImpossible();
-      return;
-    }
-
-    if (currentNode.square === endSquare) {
-      await this._highlightFinalRoute(currentNode);
+    if (await this._isRouteFinishedOrImpossible(currentNode, openList, closedList, endSquare)) {
       return;
     }
 
     openList.splice(openList.indexOf(currentNode), 1);
     closedList.push(currentNode);
 
-    this._updateOpenList(currentNode, squares, openList, closedList, endSquare);
-    await this._findRouteAStar(squares, openList, closedList, startSquare, endSquare, delayInMs);
+    this._updateOpenList(currentNode, squares, openList, closedList, startSquare, endSquare);
+    await this._findRouteAStar(squares, openList, closedList, startSquare, endSquare);
   }
 
-  private async _findRouteDijkstras(squares: Array<Square>, openList: Array<Node>, closedList: Array<Node>, startSquare: Square, endSquare: Square, delayInMs: number): Promise<void> {
+  private _resetPath(openList: Array<Node>, closedList: Array<Node>): void {
+    this._clearRouteStyles();
+    openList.splice(0, openList.length);
+    closedList.splice(0, closedList.length)
+    this.resetting = false;
+    this._routeNotFoundDueToReset = true;
+  }
+
+  private _clearRouteStyles(): void {
+    for (let square of this.squares.flat()) {
+      square.isPartOfRoute = false;
+      square.isPartOfOpenList = false;
+      square.isPartOfClosedList = false;
+    }
+  }
+
+  private async _findRouteDijkstras(squares: Array<Square>, openList: Array<Node>, closedList: Array<Node>, startSquare: Square, endSquare: Square): Promise<void> {
     const currentNode: Node = openList[0];
 
-    if (currentNode) {
-      if (currentNode.distanceFromEnd > currentNode.parent!.distanceFromEnd && delayInMs > 0 && Math.random() < 0.35) {
-        delayInMs = delayInMs - 1;
-      }
-
-      await this._highlightLists(closedList, openList, delayInMs);
-    }
-
-    if (!currentNode) {
-      await this._routeImpossible();
-      return;
-    }
-
-    if (currentNode.square === endSquare) {
-      await this._highlightFinalRoute(currentNode);
+    if (await this._isRouteFinishedOrImpossible(currentNode, openList, closedList, endSquare)) {
       return;
     }
 
     openList.splice(openList.indexOf(currentNode), 1);
     closedList.push(currentNode);
 
-    this._updateOpenList(currentNode, squares, openList, closedList, endSquare);
-    await this._findRouteDijkstras(squares, openList, closedList, startSquare, endSquare, delayInMs);
+    this._updateOpenList(currentNode, squares, openList, closedList, startSquare, endSquare);
+    await this._findRouteDijkstras(squares, openList, closedList, startSquare, endSquare);
   }
 
-  private async _highlightLists(closedList: Array<Node>, openList: Array<Node>, delayInMs: number): Promise<void> {
+  private async _isRouteFinishedOrImpossible(currentNode: Node, openList: Array<Node>, closedList: Array<Node>, endSquare: Square): Promise<boolean> {
+    if (currentNode) {
+      if (currentNode.distanceFromEnd > currentNode.parent!.distanceFromEnd && this.delayInMs > 0 && Math.random() < 0.35) {
+        this.delayInMs = this.delayInMs - 1;
+      }
+
+      await this._highlightLists(closedList, openList);
+    } else {
+      await this._routeImpossible();
+      return true;
+    }
+
+    if (currentNode.square === endSquare) {
+      await this._highlightFinalRoute(currentNode);
+      return true;
+    }
+
+    return false;
+  }
+
+  private async _highlightLists(closedList: Array<Node>, openList: Array<Node>): Promise<void> {
     for (let node of closedList) {
       node.square.isPartOfOpenList = false;
       node.square.isPartOfClosedList = true;
@@ -231,15 +266,16 @@ export class AppComponent implements OnInit {
       node.square.isPartOfOpenList = true;
     }
 
-    await this._timeout(delayInMs);
+    await this._timeout(this.delayInMs);
     this._applicationRef.tick();
   }
 
   private async _highlightFinalRoute(node: Node): Promise<void> {
-    if (!!node.parent) {
+    if (node.parent) {
       node.square.isPartOfClosedList = false;
       node.square.isPartOfRoute = true;
-      await this._timeout(60);
+      await this._timeout(0);
+      this.routeLength++;
       this._applicationRef.tick();
       await this._highlightFinalRoute(node.parent);
     }
@@ -248,9 +284,13 @@ export class AppComponent implements OnInit {
   }
 
   private async _routeImpossible(): Promise<void> {
-    const nonEndSquares: Array<Square> = this._getNonEndSquares(this.squares);
+    if (!this._routeNotFoundDueToReset) {
+      const nonEndSquares: Array<Square> = this._getNonEndSquares(this.squares);
 
-    await this._flashRed(nonEndSquares, 2);
+      await this._flashRed(nonEndSquares, 2);
+    }
+
+    this._routeNotFoundDueToReset = false;
   }
 
   private _getNonEndSquares(squares: Array<Array<Square>>): Array<Square> {
@@ -284,20 +324,26 @@ export class AppComponent implements OnInit {
     return openList.find((node: Node) => node.totalNodeCost === nodeCost) ?? null;
   }
 
-  private _updateOpenList(currentNode: Node, squares: Array<Square>, openList: Array<Node>, closedList: Array<Node>, endSquare: Square): void {
+  private _updateOpenList(currentNode: Node, squares: Array<Square>, openList: Array<Node>, closedList: Array<Node>, startSquare: Square, endSquare: Square): void {
+    if (this.resetting) {
+      this._resetPath(openList, closedList);
+      return;
+    }
+
     const adjacentSquares: Array<Square> = squares.filter((square: Square) => (this._findXDistance(square, currentNode) + this._findYDistance(square, currentNode) === 1));
 
     for (let square of adjacentSquares) {
       if (closedList.map((node: Node) => node.square).includes(square)) {
         const index: number = closedList.map((node: Node) => node.square).indexOf(square);
-        const spacesFromStartOfCurrentParent: number = closedList[index].parent ? closedList[index].parent.spacesFromStart : 0;
+        const spacesFromStartOfCurrentParent: number = closedList[index].parent ? closedList[index].parent.spacesOnRouteToStart : 0;
 
-        if (this._findSpacesFromStart(currentNode.square, currentNode.parent) < spacesFromStartOfCurrentParent) {
+        if (this._findSpacesOnRouteToStart(currentNode.square, currentNode.parent) < spacesFromStartOfCurrentParent) {
           closedList.splice(index, 1);
           closedList.push({
             parent: currentNode,
             square,
-            spacesFromStart: this._findSpacesFromStart(square, currentNode),
+            spacesOnRouteToStart: this._findSpacesOnRouteToStart(square, currentNode),
+            spacesFromStart: this._findSpacesFromStart(startSquare, square),
             distanceFromEnd: this._findDistanceFromEnd(endSquare, square),
             totalNodeCost: this._findTotalNodeCost(endSquare, square, currentNode)
           });
@@ -307,14 +353,15 @@ export class AppComponent implements OnInit {
       if (!closedList.map((node: Node) => node.square).includes(square) && !square.isWall) {
         if (openList.map((node: Node) => node.square).includes(square)) {
           const index: number = openList.map((node: Node) => node.square).indexOf(square);
-          const spacesFromStartOfCurrentParent: number = openList[index].parent!.spacesFromStart;
+          const spacesFromStartOfCurrentParent: number = openList[index].parent!.spacesOnRouteToStart;
 
-          if (this._findSpacesFromStart(currentNode.square, currentNode.parent) < spacesFromStartOfCurrentParent) {
+          if (this._findSpacesOnRouteToStart(currentNode.square, currentNode.parent) < spacesFromStartOfCurrentParent) {
             openList.splice(index, 1);
             openList.push({
               parent: currentNode,
               square,
-              spacesFromStart: this._findSpacesFromStart(square, currentNode),
+              spacesOnRouteToStart: this._findSpacesOnRouteToStart(square, currentNode),
+              spacesFromStart: this._findSpacesFromStart(startSquare, square),
               distanceFromEnd: this._findDistanceFromEnd(endSquare, square),
               totalNodeCost: this._findTotalNodeCost(endSquare, square, currentNode)
             });
@@ -325,7 +372,8 @@ export class AppComponent implements OnInit {
           openList.push({
             parent: currentNode,
             square,
-            spacesFromStart: this._findSpacesFromStart(square, currentNode),
+            spacesOnRouteToStart: this._findSpacesOnRouteToStart(square, currentNode),
+            spacesFromStart: this._findSpacesFromStart(startSquare, square),
             distanceFromEnd: this._findDistanceFromEnd(endSquare, square),
             totalNodeCost: this._findTotalNodeCost(endSquare, square, currentNode)
           });
@@ -334,7 +382,7 @@ export class AppComponent implements OnInit {
     }
   }
 
-  private _findSpacesFromStart(currentSquare: Square, parentNode: Node): number {
+  private _findSpacesOnRouteToStart(currentSquare: Square, parentNode: Node): number {
     let square: Square = currentSquare;
     let parent: Node = parentNode;
     let count: number = 0
@@ -348,12 +396,16 @@ export class AppComponent implements OnInit {
     return count;
   }
 
+  private _findSpacesFromStart(startSquare: Square, currentSquare: Square): number {
+    return Math.abs(startSquare.coordinates.x - currentSquare.coordinates.x) + Math.abs(startSquare.coordinates.y - currentSquare.coordinates.y);
+  }
+
   private _findDistanceFromEnd(endSquare: Square, currentSquare: Square): number {
-    return (Math.pow(currentSquare.coordinates.x - endSquare.coordinates.x, 2) + Math.pow(currentSquare.coordinates.y - endSquare.coordinates.y, 2)) /2;
+    return Math.pow(currentSquare.coordinates.x - endSquare.coordinates.x, 2) + Math.pow(currentSquare.coordinates.y - endSquare.coordinates.y, 2);
   }
 
   private _findTotalNodeCost(endSquare: Square, square: Square, currentNode: Node): number {
-    return (this._findSpacesFromStart(square, currentNode) * 4) + this._findDistanceFromEnd(endSquare, square);
+    return this._findSpacesOnRouteToStart(square, currentNode) + (this._findDistanceFromEnd(endSquare, square) * 2.5);
   }
 
   private _timeout(ms: number): Promise<null> {
