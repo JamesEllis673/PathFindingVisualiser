@@ -333,23 +333,6 @@ export class AppComponent {
     const adjacentSquares: Array<Square> = squares.filter((square: Square) => (this._findXDistance(square, currentNode) + this._findYDistance(square, currentNode) === 1));
 
     for (let square of adjacentSquares) {
-      if (closedList.map((node: Node) => node.square).includes(square)) {
-        const index: number = closedList.map((node: Node) => node.square).indexOf(square);
-        const spacesFromStartOfCurrentParent: number = closedList[index].parent ? closedList[index].parent.spacesOnRouteToStart : 0;
-
-        if (this._findSpacesOnRouteToStart(currentNode.square, currentNode.parent) < spacesFromStartOfCurrentParent) {
-          closedList.splice(index, 1);
-          closedList.push({
-            parent: currentNode,
-            square,
-            spacesOnRouteToStart: this._findSpacesOnRouteToStart(square, currentNode),
-            spacesFromStart: this._findSpacesFromStart(startSquare, square),
-            distanceFromEnd: this._findDistanceFromEnd(endSquare, square),
-            totalNodeCost: this._findTotalNodeCost(endSquare, square, currentNode)
-          });
-        }
-      }
-
       if (!closedList.map((node: Node) => node.square).includes(square) && !square.isWall) {
         if (openList.map((node: Node) => node.square).includes(square)) {
           const index: number = openList.map((node: Node) => node.square).indexOf(square);
