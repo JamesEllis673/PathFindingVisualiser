@@ -171,7 +171,6 @@ export class AppComponent {
       parent: null,
       square: startSquare,
       spacesFromStart: 0,
-      spacesFromStart: 0,
       distanceFromEnd: distanceFromEnd,
       totalNodeCost: distanceFromEnd
     };
