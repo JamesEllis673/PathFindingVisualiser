@@ -18,7 +18,6 @@ export type Square = {
 export type Node = {
   parent: Node;
   square: Square;
-  spacesOnRouteToStart: number;
   spacesFromStart: number;
   distanceFromEnd: number;
   totalNodeCost: number;
@@ -171,7 +170,7 @@ export class AppComponent {
     const startNode: Node = {
       parent: null,
       square: startSquare,
-      spacesOnRouteToStart: 0,
+      spacesFromStart: 0,
       spacesFromStart: 0,
       distanceFromEnd: distanceFromEnd,
       totalNodeCost: distanceFromEnd
@@ -180,18 +179,18 @@ export class AppComponent {
     const openList: Array<Node> = [];
     const closedList: Array<Node> = [startNode]
 
-    this._updateOpenList(startNode, squares, openList, closedList, startSquare, endSquare);
+    this._updateOpenList(startNode, squares, openList, closedList, endSquare);
 
     if (algorithm === PathFinderAlgorithm.aStar) {
-      await this._findRouteAStar(squares, openList, closedList, startSquare, endSquare);
+      await this._findRouteAStar(squares, openList, closedList, endSquare);
     }
 
     if (algorithm === PathFinderAlgorithm.dijkstras) {
-      await this._findRouteDijkstras(squares, openList, closedList, startSquare, endSquare);
+      await this._findRouteDijkstras(squares, openList, closedList, endSquare);
     }
   }
 
-  private async _findRouteAStar(squares: Array<Square>, openList: Array<Node>, closedList: Array<Node>, startSquare: Square, endSquare: Square): Promise<void> {
+  private async _findRouteAStar(squares: Array<Square>, openList: Array<Node>, closedList: Array<Node>, endSquare: Square): Promise<void> {
     const currentNode: Node = this._getNextNode(openList);
 
     if (await this._isRouteFinishedOrImpossible(currentNode, openList, closedList, endSquare)) {
@@ -201,8 +200,8 @@ export class AppComponent {
     openList.splice(openList.indexOf(currentNode), 1);
     closedList.push(currentNode);
 
-    this._updateOpenList(currentNode, squares, openList, closedList, startSquare, endSquare);
-    await this._findRouteAStar(squares, openList, closedList, startSquare, endSquare);
+    this._updateOpenList(currentNode, squares, openList, closedList, endSquare);
+    await this._findRouteAStar(squares, openList, closedList, endSquare);
   }
 
   private _resetPath(openList: Array<Node>, closedList: Array<Node>): void {
@@ -221,7 +220,7 @@ export class AppComponent {
     }
   }
 
-  private async _findRouteDijkstras(squares: Array<Square>, openList: Array<Node>, closedList: Array<Node>, startSquare: Square, endSquare: Square): Promise<void> {
+  private async _findRouteDijkstras(squares: Array<Square>, openList: Array<Node>, closedList: Array<Node>, endSquare: Square): Promise<void> {
     const currentNode: Node = openList[0];
 
     if (await this._isRouteFinishedOrImpossible(currentNode, openList, closedList, endSquare)) {
@@ -231,8 +230,8 @@ export class AppComponent {
     openList.splice(openList.indexOf(currentNode), 1);
     closedList.push(currentNode);
 
-    this._updateOpenList(currentNode, squares, openList, closedList, startSquare, endSquare);
-    await this._findRouteDijkstras(squares, openList, closedList, startSquare, endSquare);
+    this._updateOpenList(currentNode, squares, openList, closedList, endSquare);
+    await this._findRouteDijkstras(squares, openList, closedList, endSquare);
   }
 
   private async _isRouteFinishedOrImpossible(currentNode: Node, openList: Array<Node>, closedList: Array<Node>, endSquare: Square): Promise<boolean> {
@@ -324,7 +323,7 @@ export class AppComponent {
     return openList.find((node: Node) => node.totalNodeCost === nodeCost) ?? null;
   }
 
-  private _updateOpenList(currentNode: Node, squares: Array<Square>, openList: Array<Node>, closedList: Array<Node>, startSquare: Square, endSquare: Square): void {
+  private _updateOpenList(currentNode: Node, squares: Array<Square>, openList: Array<Node>, closedList: Array<Node>, endSquare: Square): void {
     if (this.resetting) {
       this._resetPath(openList, closedList);
       return;
@@ -336,15 +335,14 @@ export class AppComponent {
       if (!closedList.map((node: Node) => node.square).includes(square) && !square.isWall) {
         if (openList.map((node: Node) => node.square).includes(square)) {
           const index: number = openList.map((node: Node) => node.square).indexOf(square);
-          const spacesFromStartOfCurrentParent: number = openList[index].parent!.spacesOnRouteToStart;
+          const spacesFromStartOfCurrentParent: number = openList[index].parent!.spacesFromStart;
 
           if (this._findSpacesOnRouteToStart(currentNode.square, currentNode.parent) < spacesFromStartOfCurrentParent) {
             openList.splice(index, 1);
             openList.push({
               parent: currentNode,
               square,
-              spacesOnRouteToStart: this._findSpacesOnRouteToStart(square, currentNode),
-              spacesFromStart: this._findSpacesFromStart(startSquare, square),
+              spacesFromStart: this._findSpacesOnRouteToStart(square, currentNode),
               distanceFromEnd: this._findDistanceFromEnd(endSquare, square),
               totalNodeCost: this._findTotalNodeCost(endSquare, square, currentNode)
             });
@@ -355,8 +353,7 @@ export class AppComponent {
           openList.push({
             parent: currentNode,
             square,
-            spacesOnRouteToStart: this._findSpacesOnRouteToStart(square, currentNode),
-            spacesFromStart: this._findSpacesFromStart(startSquare, square),
+            spacesFromStart: this._findSpacesOnRouteToStart(square, currentNode),
             distanceFromEnd: this._findDistanceFromEnd(endSquare, square),
             totalNodeCost: this._findTotalNodeCost(endSquare, square, currentNode)
           });
@@ -379,16 +376,12 @@ export class AppComponent {
     return count;
   }
 
-  private _findSpacesFromStart(startSquare: Square, currentSquare: Square): number {
-    return Math.abs(startSquare.coordinates.x - currentSquare.coordinates.x) + Math.abs(startSquare.coordinates.y - currentSquare.coordinates.y);
-  }
-
   private _findDistanceFromEnd(endSquare: Square, currentSquare: Square): number {
-    return Math.pow(currentSquare.coordinates.x - endSquare.coordinates.x, 2) + Math.pow(currentSquare.coordinates.y - endSquare.coordinates.y, 2);
+    return Math.abs(endSquare.coordinates.x - currentSquare.coordinates.x) + Math.abs(endSquare.coordinates.y - currentSquare.coordinates.y);
   }
 
   private _findTotalNodeCost(endSquare: Square, square: Square, currentNode: Node): number {
-    return this._findSpacesOnRouteToStart(square, currentNode) + (this._findDistanceFromEnd(endSquare, square) * 2.5);
+    return this._findSpacesOnRouteToStart(square, currentNode) + (this._findDistanceFromEnd(endSquare, square));
   }
 
   private _timeout(ms: number): Promise<null> {
