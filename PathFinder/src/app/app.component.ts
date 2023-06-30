@@ -336,12 +336,12 @@ export class AppComponent {
           const index: number = openList.map((node: Node) => node.square).indexOf(square);
           const spacesFromStartOfCurrentParent: number = openList[index].parent!.spacesFromStart;
 
-          if (this._findSpacesOnRouteToStart(currentNode.square, currentNode.parent) < spacesFromStartOfCurrentParent) {
+          if (this._findSpacesFromStart(currentNode.square, currentNode.parent) < spacesFromStartOfCurrentParent) {
             openList.splice(index, 1);
             openList.push({
               parent: currentNode,
               square,
-              spacesFromStart: this._findSpacesOnRouteToStart(square, currentNode),
+              spacesFromStart: this._findSpacesFromStart(square, currentNode),
               distanceFromEnd: this._findDistanceFromEnd(endSquare, square),
               totalNodeCost: this._findTotalNodeCost(endSquare, square, currentNode)
             });
@@ -352,7 +352,7 @@ export class AppComponent {
           openList.push({
             parent: currentNode,
             square,
-            spacesFromStart: this._findSpacesOnRouteToStart(square, currentNode),
+            spacesFromStart: this._findSpacesFromStart(square, currentNode),
             distanceFromEnd: this._findDistanceFromEnd(endSquare, square),
             totalNodeCost: this._findTotalNodeCost(endSquare, square, currentNode)
           });
@@ -361,7 +361,7 @@ export class AppComponent {
     }
   }
 
-  private _findSpacesOnRouteToStart(currentSquare: Square, parentNode: Node): number {
+  private _findSpacesFromStart(currentSquare: Square, parentNode: Node): number {
     let square: Square = currentSquare;
     let parent: Node = parentNode;
     let count: number = 0
@@ -380,7 +380,7 @@ export class AppComponent {
   }
 
   private _findTotalNodeCost(endSquare: Square, square: Square, currentNode: Node): number {
-    return this._findSpacesOnRouteToStart(square, currentNode) + (this._findDistanceFromEnd(endSquare, square));
+    return this._findSpacesFromStart(square, currentNode) + (this._findDistanceFromEnd(endSquare, square));
   }
 
   private _timeout(ms: number): Promise<null> {
